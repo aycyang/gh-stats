@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>GitHub OAuth Example</title>
+</head>
+<body>
+  <button id="login">Login with GitHub</button>
+  <pre id="result"></pre>
+
+  <script>
+    const clientId = "Ov23liqzxAZdVana8Zna";
+    const redirectUri = window.location.origin; 
+    // Will be http://127.0.0.1:8888 in dev or https://yoursite.netlify.app in prod
+
+    document.getElementById("login").addEventListener("click", () => {
+      const authUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=read:user`;
+      window.location.href = authUrl;
+    });
+
+    async function handleAuthCode() {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("code");
+
+      if (code) {
+        const res = await fetch(`/.netlify/functions/get_profile_info?code=${code}`);
+        const data = await res.json();
+        document.getElementById("result").textContent = JSON.stringify(data, null, 2);
+      }
+    }
+
+    handleAuthCode();
+  </script>
+</body>
+</html>
