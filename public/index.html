@@ -515,7 +515,7 @@
 
       if (code) {
         try {
-          const res = await fetch(`/.netlify/functions/get_profile_info?code=${code}`);
+          const res = await fetch(`/.netlify/functions/get_profile_info?code=${code}&client_id=${clientId}`);
           const data = await res.json();
 
           if (data.access_token || data.login) {

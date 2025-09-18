@@ -3,6 +3,7 @@ export async function handler(event) {
   console.log("Query Parameters:", event.queryStringParameters);
 
   const code = event.queryStringParameters.code;
+  const clientIdFromFrontend = event.queryStringParameters.client_id; // We'll pass this from frontend
 
   if (!code) {
     console.error("❌ Missing code parameter in request");
@@ -12,9 +13,20 @@ export async function handler(event) {
     };
   }
 
-  const clientId = process.env.GITHUB_CLIENT_ID;
-  const clientSecret = process.env.GITHUB_CLIENT_SECRET;
+  // Determine which OAuth app to use based on client_id or environment
+  const isDevelopment = clientIdFromFrontend === process.env.GITHUB_CLIENT_ID_DEV ||
+                       event.headers.host?.includes('localhost') ||
+                       event.headers.host?.includes('127.0.0.1');
 
+  const clientId = isDevelopment ?
+    process.env.GITHUB_CLIENT_ID_DEV :
+    process.env.GITHUB_CLIENT_ID_PROD;
+
+  const clientSecret = isDevelopment ?
+    process.env.GITHUB_CLIENT_SECRET_DEV :
+    process.env.GITHUB_CLIENT_SECRET_PROD;
+
+  console.log("Environment:", isDevelopment ? "Development" : "Production");
   console.log("Client ID:", clientId ? "✅ Set" : "❌ Missing");
   console.log("Client Secret:", clientSecret ? "✅ Set" : "❌ Missing");
 
