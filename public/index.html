@@ -375,9 +375,46 @@
   <pre id="result" style="display: none;"></pre>
 
   <script>
-    const clientId = "Ov23liqzxAZdVana8Zna";
-    const redirectUri = window.location.origin;
-    // Will be http://127.0.0.1:8888 in dev or https://yoursite.netlify.app in prod
+    // Environment-based GitHub OAuth app configuration
+    function detectEnvironment() {
+      const hostname = window.location.hostname;
+      const port = window.location.port;
+
+      // Development environment detection
+      const isDev = hostname === 'localhost' ||
+                   hostname === '127.0.0.1' ||
+                   hostname.startsWith('192.168.') ||
+                   port === '8888' ||
+                   hostname.endsWith('.local');
+
+      return {
+        isDevelopment: isDev,
+        hostname,
+        port,
+        origin: window.location.origin
+      };
+    }
+
+    const env = detectEnvironment();
+
+    // GitHub OAuth Client IDs for different environments
+    const CLIENT_IDS = {
+      development: "YOUR_DEVELOPMENT_CLIENT_ID",  // Replace with your new development app ID
+      production: "Ov23liqzxAZdVana8Zna"  // Current app, now production-only
+    };
+
+    const clientId = env.isDevelopment ? CLIENT_IDS.development : CLIENT_IDS.production;
+    const redirectUri = env.origin;
+
+    // Validation and logging
+    if (clientId === "YOUR_DEVELOPMENT_CLIENT_ID") {
+      console.warn("⚠️ Development client ID not configured! Please replace YOUR_DEVELOPMENT_CLIENT_ID with your new development GitHub OAuth app client ID.");
+    }
+
+    console.log(`🌍 Environment: ${env.isDevelopment ? 'Development' : 'Production'}`);
+    console.log(`🔑 Using client ID: ${clientId}`);
+    console.log(`🔗 Redirect URI: ${redirectUri}`);
+    console.log(`🖥️ Detected: ${env.hostname}:${env.port || '(default)'}`);
 
     let accessToken = null;
     let userProfile = null;
@@ -439,10 +476,18 @@
     }
 
     document.getElementById("login").addEventListener("click", () => {
+      // Validate client ID configuration
+      if (clientId === "YOUR_DEVELOPMENT_CLIENT_ID") {
+        showError("GitHub OAuth app not configured for this environment. Please check the console for details.");
+        return;
+      }
+
       const includePrivate = document.getElementById("includePrivateRepos").checked;
       const scope = includePrivate ? "read:user,repo" : "read:user,public_repo";
 
       const authUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}`;
+
+      console.log(`🚀 Initiating OAuth flow with scope: ${scope}`);
       window.location.href = authUrl;
     });
 
