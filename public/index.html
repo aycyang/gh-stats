@@ -306,8 +306,14 @@
 
   <div class="container login-section" id="loginSection">
     <button id="login">Login with GitHub</button>
-    <p style="margin-top: 15px; color: #656d76; font-size: 14px;">
-      We'll need access to your repositories to analyze your commit history
+    <div style="margin-top: 15px;">
+      <label style="display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; color: #24292f; cursor: pointer;">
+        <input type="checkbox" id="includePrivateRepos" style="cursor: pointer;">
+        Include private repositories
+      </label>
+    </div>
+    <p style="margin-top: 15px; color: #656d76; font-size: 14px; text-align: center;">
+      We'll analyze your commit history from the selected repositories
     </p>
   </div>
 
@@ -433,7 +439,10 @@
     }
 
     document.getElementById("login").addEventListener("click", () => {
-      const authUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=read:user,public_repo`;
+      const includePrivate = document.getElementById("includePrivateRepos").checked;
+      const scope = includePrivate ? "read:user,repo" : "read:user,public_repo";
+
+      const authUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}`;
       window.location.href = authUrl;
     });
 

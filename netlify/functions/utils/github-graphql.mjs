@@ -207,7 +207,7 @@ export async function getRepositoriesWithCommitsInDateRange(accessToken, usernam
       const repoMap = new Map();
       searchResults.items.forEach(commit => {
         const repo = commit.repository;
-        if (repo && !repo.private) { // Only include public repos
+        if (repo) { // Include both public and private repos based on user's OAuth scope
           repoMap.set(repo.full_name, {
             name: repo.name,
             owner: { login: repo.owner.login },
