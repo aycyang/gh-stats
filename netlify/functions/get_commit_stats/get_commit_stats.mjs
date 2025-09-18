@@ -104,20 +104,13 @@ export async function handler(event) {
 
     console.log(`Total commits processed: ${allCommits.length}`);
 
-    // Group and aggregate data by time period and language
-    const aggregatedData = aggregateCommitsByTimeAndLanguage(allCommits, time_period);
-
-    // Calculate summary statistics
-    const summary = calculateSummaryStats(allCommits);
-
     const response = {
       timeRange: {
         startDate,
         endDate,
         timePeriod: time_period
       },
-      summary,
-      aggregatedData,
+      commits: allCommits, // Send raw commit data for client-side processing
       processedRepositories: processedRepos,
       totalCommits: allCommits.length,
       totalRepositories: processedRepos.length
@@ -155,6 +148,7 @@ function aggregateCommitsByTimeAndLanguage(commits, timePeriod) {
   commits.forEach(commit => {
     const date = new Date(commit.committedDate);
     const timeKey = getTimeKey(date, timePeriod);
+    const repoName = `${commit.repository.owner}/${commit.repository.name}`;
 
     if (!aggregated[timeKey]) {
       aggregated[timeKey] = {
@@ -177,18 +171,49 @@ function aggregateCommitsByTimeAndLanguage(commits, timePeriod) {
           additions: 0,
           deletions: 0,
           changes: 0,
-          files: 0
+          files: 0,
+          repositories: new Map()
         };
       }
 
-      aggregated[timeKey].languages[language].additions += file.additions;
-      aggregated[timeKey].languages[language].deletions += file.deletions;
-      aggregated[timeKey].languages[language].changes += file.changes;
-      aggregated[timeKey].languages[language].files++;
+      const langData = aggregated[timeKey].languages[language];
+      langData.additions += file.additions;
+      langData.deletions += file.deletions;
+      langData.changes += file.changes;
+      langData.files++;
+
+      // Track repository contributions for this language
+      if (!langData.repositories.has(repoName)) {
+        langData.repositories.set(repoName, {
+          name: repoName,
+          additions: 0,
+          deletions: 0,
+          changes: 0,
+          files: 0,
+          commits: new Set()
+        });
+      }
+
+      const repoData = langData.repositories.get(repoName);
+      repoData.additions += file.additions;
+      repoData.deletions += file.deletions;
+      repoData.changes += file.changes;
+      repoData.files++;
+      repoData.commits.add(commit.oid);
 
       aggregated[timeKey].totalAdditions += file.additions;
       aggregated[timeKey].totalDeletions += file.deletions;
       aggregated[timeKey].totalChanges += file.changes;
+    });
+  });
+
+  // Convert repository Maps to arrays and commit Sets to counts
+  Object.values(aggregated).forEach(timeData => {
+    Object.values(timeData.languages).forEach(langData => {
+      langData.repositories = Array.from(langData.repositories.values()).map(repo => ({
+        ...repo,
+        commits: repo.commits.size
+      })).sort((a, b) => b.changes - a.changes);
     });
   });
 
@@ -198,7 +223,16 @@ function aggregateCommitsByTimeAndLanguage(commits, timePeriod) {
 function getTimeKey(date, timePeriod) {
   if (timePeriod === 'weekly') {
     const startOfWeek = new Date(date);
-    startOfWeek.setDate(date.getDate() - date.getDay());
+    // Set to Sunday (start of week) by subtracting the day of week
+    const dayOfWeek = startOfWeek.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const diffToSunday = dayOfWeek;
+
+    // Use setTime instead of setDate to avoid month boundary issues
+    startOfWeek.setTime(startOfWeek.getTime() - (diffToSunday * 24 * 60 * 60 * 1000));
+
+    // Reset to start of day to ensure consistency
+    startOfWeek.setHours(0, 0, 0, 0);
+
     return startOfWeek.toISOString().split('T')[0];
   } else {
     return date.toISOString().split('T')[0];

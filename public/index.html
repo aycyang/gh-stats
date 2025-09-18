@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <title>GitHub Commit Analytics</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -91,62 +92,111 @@
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
-    .language-chart {
-      margin-bottom: 30px;
+    .main-chart {
+      background: white;
+      border-radius: 8px;
+      padding: 30px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin: 20px 0;
     }
-    .language-bar {
+    .chart-title {
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 24px;
+      font-weight: 600;
+      color: #24292f;
+    }
+    .d3-chart {
+      width: 100%;
+      height: 500px;
+    }
+    .axis {
+      font-size: 12px;
+    }
+    .axis text {
+      fill: #656d76;
+    }
+    .axis path,
+    .axis line {
+      fill: none;
+      stroke: #e1e7ef;
+      stroke-width: 1;
+    }
+    .grid line {
+      stroke: #f6f8fa;
+      stroke-width: 1;
+    }
+    .grid path {
+      stroke-width: 0;
+    }
+    .area {
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+    .area:hover {
+      opacity: 0.8;
+    }
+    .language-legend {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 15px;
+      margin-top: 20px;
+    }
+    .legend-item {
       display: flex;
       align-items: center;
-      margin-bottom: 8px;
+      gap: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: background-color 0.2s ease;
     }
-    .language-name {
-      width: 120px;
-      font-size: 14px;
+    .legend-item:hover {
+      background: #f6f8fa;
+    }
+    .legend-item.dimmed {
+      opacity: 0.3;
+    }
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+    }
+    .d3-tooltip {
+      position: absolute;
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      pointer-events: none;
+      z-index: 1000;
+      max-width: 300px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+    .d3-tooltip.visible {
+      opacity: 1;
+    }
+    .tooltip-header {
+      font-weight: 600;
+      margin-bottom: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      padding-bottom: 4px;
+    }
+    .tooltip-language {
+      color: #ffd700;
       font-weight: 500;
     }
-    .language-progress {
-      flex: 1;
-      background: #e1e7ef;
-      border-radius: 3px;
-      overflow: hidden;
-      margin: 0 10px;
+    .tooltip-repos {
+      margin-top: 8px;
     }
-    .language-fill {
-      height: 20px;
-      background: linear-gradient(90deg, #0969da, #218bff);
-      transition: width 0.3s ease;
-    }
-    .language-value {
-      font-size: 12px;
-      color: #656d76;
-      min-width: 80px;
-      text-align: right;
-    }
-    .timeline {
-      margin-top: 30px;
-    }
-    .timeline-day {
-      display: flex;
-      align-items: center;
-      padding: 10px 0;
-      border-bottom: 1px solid #e1e7ef;
-    }
-    .timeline-date {
-      width: 100px;
-      font-size: 12px;
-      color: #656d76;
-    }
-    .timeline-languages {
-      flex: 1;
-      display: flex;
-      gap: 5px;
-    }
-    .timeline-lang {
-      background: #0969da;
-      color: white;
-      padding: 2px 6px;
-      border-radius: 3px;
-      font-size: 11px;
+    .tooltip-repo {
+      margin: 2px 0;
+      padding-left: 8px;
     }
     .error {
       background: #fff5f5;
@@ -158,6 +208,93 @@
     }
     .hidden {
       display: none;
+    }
+    .filter-controls {
+      background: #f8f9fa;
+      border: 1px solid #e1e7ef;
+      border-radius: 6px;
+      padding: 15px;
+      margin: 20px 0;
+      transition: all 0.3s ease;
+    }
+    .filter-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      margin-bottom: 10px;
+    }
+    .filter-header h4 {
+      margin: 0;
+      color: #24292f;
+      font-size: 14px;
+    }
+    .filter-toggle {
+      background: none;
+      border: none;
+      font-size: 12px;
+      color: #656d76;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    .filter-toggle:hover {
+      background: #e1e7ef;
+    }
+    .filter-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+    .filter-content.expanded {
+      max-height: 500px;
+    }
+    .commit-list {
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid #e1e7ef;
+      border-radius: 4px;
+    }
+    .commit-item {
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-bottom: 1px solid #f6f8fa;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+    .commit-item:hover {
+      background: #f6f8fa;
+    }
+    .commit-item.excluded {
+      background: #fff5f5;
+      opacity: 0.7;
+    }
+    .commit-checkbox {
+      margin-right: 10px;
+    }
+    .commit-details {
+      flex: 1;
+      min-width: 0;
+    }
+    .commit-message {
+      font-size: 13px;
+      font-weight: 500;
+      color: #24292f;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+    .commit-meta {
+      font-size: 11px;
+      color: #656d76;
+    }
+    .commit-stats {
+      font-size: 11px;
+      color: #0969da;
+      font-weight: 500;
+      margin-left: 10px;
     }
   </style>
 </head>
@@ -204,10 +341,29 @@
     <div class="error hidden" id="error"></div>
 
     <div id="results" class="hidden">
-      <div class="stats-summary" id="statsSummary"></div>
-      <div class="language-chart" id="languageChart"></div>
-      <div class="timeline" id="timeline"></div>
+      <div class="main-chart">
+        <h2 class="chart-title">Programming Language Activity Over Time</h2>
+        <svg class="d3-chart" id="languageTrendChart"></svg>
+        <div class="language-legend" id="languageLegend"></div>
+      </div>
+
+      <div class="filter-controls" id="filterControls">
+        <div class="filter-header" onclick="toggleFilters()">
+          <h4>🔧 Advanced Filters</h4>
+          <button class="filter-toggle" id="filterToggleBtn">Show</button>
+        </div>
+        <div class="filter-content" id="filterContent">
+          <div style="margin-bottom: 15px;">
+            <p style="margin: 0 0 10px 0; font-size: 12px; color: #656d76;">
+              Exclude commits with unusually large changes (e.g., code you didn't write):
+            </p>
+            <div class="commit-list" id="commitList"></div>
+          </div>
+        </div>
+      </div>
     </div>
+
+    <div class="d3-tooltip" id="d3Tooltip"></div>
   </div>
 
   <pre id="result" style="display: none;"></pre>
@@ -219,6 +375,62 @@
 
     let accessToken = null;
     let userProfile = null;
+    let rawCommits = [];
+    let excludedCommits = new Set();
+    let currentTimePeriod = 'daily';
+
+    // GitHub's official language colors
+    const GITHUB_LANGUAGE_COLORS = {
+      'JavaScript': '#f1e05a',
+      'TypeScript': '#3178c6',
+      'Python': '#3572A5',
+      'Java': '#b07219',
+      'C': '#555555',
+      'C++': '#f34b7d',
+      'C#': '#239120',
+      'PHP': '#4F5D95',
+      'Ruby': '#701516',
+      'Go': '#00ADD8',
+      'Rust': '#dea584',
+      'Swift': '#ffac45',
+      'Kotlin': '#A97BFF',
+      'Scala': '#c22d40',
+      'Clojure': '#db5855',
+      'ClojureScript': '#db5855',
+      'HTML': '#e34c26',
+      'CSS': '#563d7c',
+      'SCSS': '#c6538c',
+      'Sass': '#a53b70',
+      'Less': '#1d365d',
+      'Vue': '#4FC08D',
+      'Svelte': '#ff3e00',
+      'Shell': '#89e051',
+      'PowerShell': '#012456',
+      'Vim Script': '#199f4b',
+      'Lua': '#000080',
+      'Perl': '#0298c3',
+      'R': '#198CE7',
+      'Objective-C': '#438eff',
+      'Objective-C++': '#6866fb',
+      'Dart': '#00B4AB',
+      'Haskell': '#5e5086',
+      'Erlang': '#B83998',
+      'Elixir': '#6e4a7e',
+      'F#': '#b845fc',
+      'Visual Basic': '#945db7',
+      'Dockerfile': '#384d54',
+      'YAML': '#cb171e',
+      'JSON': '#292929',
+      'XML': '#0060ac',
+      'Markdown': '#083fa1',
+      'SQL': '#e38c00',
+      'TOML': '#9c4221',
+      'Unknown': '#cccccc'
+    };
+
+    function getLanguageColor(language) {
+      return GITHUB_LANGUAGE_COLORS[language] || GITHUB_LANGUAGE_COLORS['Unknown'];
+    }
 
     document.getElementById("login").addEventListener("click", () => {
       const authUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=read:user,public_repo`;
@@ -307,89 +519,186 @@
     }
 
     function displayResults(data) {
-      displaySummaryStats(data.summary);
-      displayLanguageChart(data.summary.topLanguages);
-      displayTimeline(data.aggregatedData);
+      rawCommits = data.commits;
+      currentTimePeriod = data.timeRange.timePeriod;
+      excludedCommits.clear(); // Reset exclusions on new data
+
+      // Process and display data
+      updateDisplays();
+      populateCommitList();
       showResults();
     }
 
-    function displaySummaryStats(summary) {
-      const container = document.getElementById("statsSummary");
-      container.innerHTML = `
-        <div class="stat-card">
-          <div class="stat-number">${summary.totalCommits}</div>
-          <div class="stat-label">Total Commits</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-number">${summary.totalAdditions.toLocaleString()}</div>
-          <div class="stat-label">Lines Added</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-number">${summary.totalDeletions.toLocaleString()}</div>
-          <div class="stat-label">Lines Deleted</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-number">${summary.totalFiles}</div>
-          <div class="stat-label">Files Changed</div>
-        </div>
-      `;
+    function updateDisplays() {
+      // Filter out excluded commits
+      const filteredCommits = rawCommits.filter(commit => !excludedCommits.has(commit.oid));
+
+      // Aggregate data client-side
+      const aggregatedData = aggregateCommitsByTimeAndLanguage(filteredCommits, currentTimePeriod);
+
+      displayLanguageTrendChart(aggregatedData);
     }
 
-    function displayLanguageChart(languages) {
-      const container = document.getElementById("languageChart");
-
-      if (!languages.length) {
-        container.innerHTML = '<p>No language data available</p>';
-        return;
-      }
-
-      const maxChanges = Math.max(...languages.map(l => l.changes));
-
-      container.innerHTML = `
-        <h3>Top Programming Languages</h3>
-        ${languages.map(lang => `
-          <div class="language-bar">
-            <div class="language-name">${lang.language}</div>
-            <div class="language-progress">
-              <div class="language-fill" style="width: ${(lang.changes / maxChanges) * 100}%"></div>
-            </div>
-            <div class="language-value">${lang.changes.toLocaleString()} changes</div>
-          </div>
-        `).join('')}
-      `;
-    }
-
-    function displayTimeline(timelineData) {
-      const container = document.getElementById("timeline");
-
+    function displayLanguageTrendChart(timelineData) {
       if (!timelineData.length) {
-        container.innerHTML = '<p>No timeline data available</p>';
+        document.getElementById("languageTrendChart").innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#656d76">No data available</text>';
         return;
       }
 
-      container.innerHTML = `
-        <h3>Activity Timeline</h3>
-        ${timelineData.map(day => {
-          const topLanguages = Object.entries(day.languages)
-            .sort(([,a], [,b]) => b.changes - a.changes)
-            .slice(0, 5)
-            .map(([lang]) => lang);
+      // Prepare data for D3 stacked area chart
+      const data = timelineData.map(d => ({
+        date: new Date(d.date),
+        ...Object.fromEntries(
+          Object.entries(d.languages).map(([lang, langData]) => [lang, langData.changes])
+        )
+      }));
 
-          return `
-            <div class="timeline-day">
-              <div class="timeline-date">${day.date}</div>
-              <div style="margin: 0 15px; color: #656d76; font-size: 12px;">
-                ${day.totalCommits} commits, ${day.totalChanges} changes
-              </div>
-              <div class="timeline-languages">
-                ${topLanguages.map(lang => `
-                  <span class="timeline-lang">${lang}</span>
+      // Get all languages and sort by total usage
+      const allLanguages = new Set();
+      timelineData.forEach(d => Object.keys(d.languages).forEach(lang => allLanguages.add(lang)));
+
+      const languageTotals = Array.from(allLanguages).map(lang => ({
+        language: lang,
+        total: data.reduce((sum, d) => sum + (d[lang] || 0), 0)
+      })).sort((a, b) => b.total - a.total);
+
+      const languages = languageTotals.slice(0, 10).map(d => d.language); // Top 10 languages
+
+      // Set up dimensions
+      const margin = { top: 20, right: 120, bottom: 40, left: 60 };
+      const width = 1000 - margin.left - margin.right;
+      const height = 500 - margin.top - margin.bottom;
+
+      // Clear previous chart
+      d3.select("#languageTrendChart").selectAll("*").remove();
+
+      const svg = d3.select("#languageTrendChart")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom);
+
+      const g = svg.append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+
+      // Set up scales
+      const xScale = d3.scaleTime()
+        .domain(d3.extent(data, d => d.date))
+        .range([0, width]);
+
+      const yScale = d3.scaleLinear()
+        .domain([0, d3.max(data, d => d3.sum(languages, lang => d[lang] || 0))])
+        .range([height, 0]);
+
+      // Set up stack
+      const stack = d3.stack()
+        .keys(languages)
+        .value((d, key) => d[key] || 0);
+
+      const stackedData = stack(data);
+
+      // Set up area generator
+      const area = d3.area()
+        .x(d => xScale(d.data.date))
+        .y0(d => yScale(d[0]))
+        .y1(d => yScale(d[1]))
+        .curve(d3.curveCardinal);
+
+      // Create tooltip
+      const tooltip = d3.select("#d3Tooltip");
+
+      // Draw areas
+      g.selectAll(".area")
+        .data(stackedData)
+        .enter().append("path")
+        .attr("class", "area")
+        .attr("d", area)
+        .attr("fill", d => getLanguageColor(d.key))
+        .on("mouseover", function(event, d) {
+          const [mouseX, mouseY] = d3.pointer(event, document.body);
+
+          // Find the closest data point
+          const bisect = d3.bisector(d => d.data.date).left;
+          const x0 = xScale.invert(d3.pointer(event, this)[0]);
+          const i = bisect(d, x0, 1);
+          const d0 = d[i - 1];
+          const d1 = d[i];
+          const selectedData = d1 && (x0 - d0.data.date > d1.data.date - x0) ? d1 : d0;
+
+          if (selectedData) {
+            const changes = selectedData[1] - selectedData[0];
+            const date = selectedData.data.date.toLocaleDateString();
+            const language = d.key;
+
+            // Get repository data for this language and date
+            const timeEntry = timelineData.find(t => new Date(t.date).getTime() === selectedData.data.date.getTime());
+            const repos = timeEntry ? timeEntry.languages[language]?.repositories || [] : [];
+
+            tooltip.html(`
+              <div class="tooltip-header">${date}</div>
+              <div class="tooltip-language">${language}</div>
+              <div>${changes.toLocaleString()} changes</div>
+              <div class="tooltip-repos">
+                <strong>Repositories:</strong>
+                ${repos.slice(0, 5).map(repo => `
+                  <div class="tooltip-repo">
+                    ${repo.name}: ${repo.changes.toLocaleString()} changes
+                    (${repo.commits} commit${repo.commits !== 1 ? 's' : ''})
+                  </div>
                 `).join('')}
+                ${repos.length > 5 ? `<div class="tooltip-repo">... and ${repos.length - 5} more</div>` : ''}
               </div>
-            </div>
-          `;
-        }).join('')}
-      `;
+            `)
+            .style("left", (mouseX + 10) + "px")
+            .style("top", (mouseY - 10) + "px")
+            .classed("visible", true);
+          }
+        })
+        .on("mouseout", function() {
+          tooltip.classed("visible", false);
+        });
+
+      // Add axes
+      g.append("g")
+        .attr("class", "axis")
+        .attr("transform", `translate(0,${height})`)
+        .call(d3.axisBottom(xScale).tickFormat(d3.timeFormat("%m/%d")));
+
+      g.append("g")
+        .attr("class", "axis")
+        .call(d3.axisLeft(yScale).tickFormat(d => d.toLocaleString()));
+
+      // Add grid lines
+      g.append("g")
+        .attr("class", "grid")
+        .attr("transform", `translate(0,${height})`)
+        .call(d3.axisBottom(xScale).tickSize(-height).tickFormat(""));
+
+      g.append("g")
+        .attr("class", "grid")
+        .call(d3.axisLeft(yScale).tickSize(-width).tickFormat(""));
+
+      // Update legend
+      updateLegend(languages);
+    }
+
+    function updateLegend(languages) {
+      const legendContainer = d3.select("#languageLegend");
+      legendContainer.selectAll("*").remove();
+
+      const legendItems = legendContainer.selectAll(".legend-item")
+        .data(languages)
+        .enter().append("div")
+        .attr("class", "legend-item")
+        .on("click", function(event, language) {
+          // Toggle language visibility (could implement this feature)
+          console.log("Clicked language:", language);
+        });
+
+      legendItems.append("div")
+        .attr("class", "legend-color")
+        .style("background-color", d => getLanguageColor(d));
+
+      legendItems.append("span")
+        .text(d => d);
     }
 
     function showLoading(show) {
@@ -413,6 +722,213 @@
 
     function hideResults() {
       document.getElementById("results").classList.add("hidden");
+    }
+
+
+    // Client-side aggregation functions
+    function aggregateCommitsByTimeAndLanguage(commits, timePeriod) {
+      const aggregated = {};
+
+      commits.forEach(commit => {
+        const date = new Date(commit.committedDate);
+        const timeKey = getTimeKey(date, timePeriod);
+        const repoName = `${commit.repository.owner}/${commit.repository.name}`;
+
+        if (!aggregated[timeKey]) {
+          aggregated[timeKey] = {
+            date: timeKey,
+            languages: {},
+            totalCommits: 0,
+            totalAdditions: 0,
+            totalDeletions: 0,
+            totalChanges: 0
+          };
+        }
+
+        aggregated[timeKey].totalCommits++;
+
+        commit.files.forEach(file => {
+          const language = file.language;
+
+          if (!aggregated[timeKey].languages[language]) {
+            aggregated[timeKey].languages[language] = {
+              additions: 0,
+              deletions: 0,
+              changes: 0,
+              files: 0,
+              repositories: new Map()
+            };
+          }
+
+          const langData = aggregated[timeKey].languages[language];
+          langData.additions += file.additions;
+          langData.deletions += file.deletions;
+          langData.changes += file.changes;
+          langData.files++;
+
+          // Track repository contributions for this language
+          if (!langData.repositories.has(repoName)) {
+            langData.repositories.set(repoName, {
+              name: repoName,
+              additions: 0,
+              deletions: 0,
+              changes: 0,
+              files: 0,
+              commits: new Set()
+            });
+          }
+
+          const repoData = langData.repositories.get(repoName);
+          repoData.additions += file.additions;
+          repoData.deletions += file.deletions;
+          repoData.changes += file.changes;
+          repoData.files++;
+          repoData.commits.add(commit.oid);
+
+          aggregated[timeKey].totalAdditions += file.additions;
+          aggregated[timeKey].totalDeletions += file.deletions;
+          aggregated[timeKey].totalChanges += file.changes;
+        });
+      });
+
+      // Convert repository Maps to arrays and commit Sets to counts
+      Object.values(aggregated).forEach(timeData => {
+        Object.values(timeData.languages).forEach(langData => {
+          langData.repositories = Array.from(langData.repositories.values()).map(repo => ({
+            ...repo,
+            commits: repo.commits.size
+          })).sort((a, b) => b.changes - a.changes);
+        });
+      });
+
+      return Object.values(aggregated).sort((a, b) => new Date(a.date) - new Date(b.date));
+    }
+
+    function getTimeKey(date, timePeriod) {
+      if (timePeriod === 'weekly') {
+        const startOfWeek = new Date(date);
+        // Set to Sunday (start of week) by subtracting the day of week
+        const dayOfWeek = startOfWeek.getDay(); // 0 = Sunday, 1 = Monday, etc.
+        const diffToSunday = dayOfWeek;
+
+        // Use setTime instead of setDate to avoid month boundary issues
+        startOfWeek.setTime(startOfWeek.getTime() - (diffToSunday * 24 * 60 * 60 * 1000));
+
+        // Reset to start of day to ensure consistency
+        startOfWeek.setHours(0, 0, 0, 0);
+
+        return startOfWeek.toISOString().split('T')[0];
+      } else {
+        return date.toISOString().split('T')[0];
+      }
+    }
+
+    function calculateSummaryStats(commits) {
+      const languageStats = {};
+      let totalAdditions = 0;
+      let totalDeletions = 0;
+      let totalFiles = 0;
+
+      commits.forEach(commit => {
+        commit.files.forEach(file => {
+          const language = file.language;
+
+          if (!languageStats[language]) {
+            languageStats[language] = {
+              additions: 0,
+              deletions: 0,
+              changes: 0,
+              files: 0,
+              commits: new Set()
+            };
+          }
+
+          languageStats[language].additions += file.additions;
+          languageStats[language].deletions += file.deletions;
+          languageStats[language].changes += file.changes;
+          languageStats[language].files++;
+          languageStats[language].commits.add(commit.oid);
+
+          totalAdditions += file.additions;
+          totalDeletions += file.deletions;
+          totalFiles++;
+        });
+      });
+
+      // Convert Sets to counts
+      Object.keys(languageStats).forEach(language => {
+        languageStats[language].commits = languageStats[language].commits.size;
+      });
+
+      // Sort languages by total changes
+      const sortedLanguages = Object.entries(languageStats)
+        .sort(([,a], [,b]) => b.changes - a.changes)
+        .map(([language, stats]) => ({ language, ...stats }));
+
+      return {
+        totalAdditions,
+        totalDeletions,
+        totalChanges: totalAdditions + totalDeletions,
+        totalFiles,
+        totalCommits: commits.length,
+        languageBreakdown: sortedLanguages,
+        topLanguages: sortedLanguages.slice(0, 10)
+      };
+    }
+
+    function populateCommitList() {
+      const container = document.getElementById("commitList");
+
+      // Sort commits by total changes (descending) to show largest first
+      const sortedCommits = [...rawCommits].sort((a, b) => {
+        const aChanges = a.files.reduce((sum, file) => sum + file.changes, 0);
+        const bChanges = b.files.reduce((sum, file) => sum + file.changes, 0);
+        return bChanges - aChanges;
+      });
+
+      container.innerHTML = sortedCommits.map(commit => {
+        const totalChanges = commit.files.reduce((sum, file) => sum + file.changes, 0);
+        const date = new Date(commit.committedDate).toLocaleDateString();
+        const repoName = `${commit.repository.owner}/${commit.repository.name}`;
+        const isExcluded = excludedCommits.has(commit.oid);
+
+        return `
+          <div class="commit-item ${isExcluded ? 'excluded' : ''}" onclick="toggleCommitExclusion('${commit.oid}')">
+            <input type="checkbox" class="commit-checkbox" ${isExcluded ? '' : 'checked'}
+                   onchange="event.stopPropagation(); toggleCommitExclusion('${commit.oid}')">
+            <div class="commit-details">
+              <div class="commit-message">${commit.message.split('\n')[0]}</div>
+              <div class="commit-meta">${repoName} • ${date}</div>
+            </div>
+            <div class="commit-stats">${totalChanges.toLocaleString()} changes</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function toggleCommitExclusion(commitId) {
+      if (excludedCommits.has(commitId)) {
+        excludedCommits.delete(commitId);
+      } else {
+        excludedCommits.add(commitId);
+      }
+
+      // Update displays with new filter
+      updateDisplays();
+      populateCommitList();
+    }
+
+    function toggleFilters() {
+      const content = document.getElementById("filterContent");
+      const button = document.getElementById("filterToggleBtn");
+
+      if (content.classList.contains("expanded")) {
+        content.classList.remove("expanded");
+        button.textContent = "Show";
+      } else {
+        content.classList.add("expanded");
+        button.textContent = "Hide";
+      }
     }
 
     handleAuthCode();
