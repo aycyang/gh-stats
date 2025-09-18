@@ -2,20 +2,245 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>GitHub OAuth Example</title>
+  <title>GitHub Commit Analytics</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f6f8fa;
+    }
+    .container {
+      background: white;
+      border-radius: 8px;
+      padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .login-section {
+      text-align: center;
+      padding: 40px 0;
+    }
+    .controls {
+      display: flex;
+      gap: 20px;
+      align-items: end;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    label {
+      font-weight: 600;
+      color: #24292f;
+    }
+    input, select, button {
+      padding: 8px 12px;
+      border: 1px solid #d1d9e0;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    button {
+      background: #0969da;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    button:hover {
+      background: #0550ae;
+    }
+    button:disabled {
+      background: #8c959f;
+      cursor: not-allowed;
+    }
+    .loading {
+      display: none;
+      text-align: center;
+      color: #656d76;
+      margin: 20px 0;
+    }
+    .stats-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 30px;
+    }
+    .stat-card {
+      background: #f6f8fa;
+      padding: 16px;
+      border-radius: 6px;
+      text-align: center;
+    }
+    .stat-number {
+      font-size: 24px;
+      font-weight: 700;
+      color: #0969da;
+    }
+    .stat-label {
+      font-size: 12px;
+      color: #656d76;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .language-chart {
+      margin-bottom: 30px;
+    }
+    .language-bar {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .language-name {
+      width: 120px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .language-progress {
+      flex: 1;
+      background: #e1e7ef;
+      border-radius: 3px;
+      overflow: hidden;
+      margin: 0 10px;
+    }
+    .language-fill {
+      height: 20px;
+      background: linear-gradient(90deg, #0969da, #218bff);
+      transition: width 0.3s ease;
+    }
+    .language-value {
+      font-size: 12px;
+      color: #656d76;
+      min-width: 80px;
+      text-align: right;
+    }
+    .timeline {
+      margin-top: 30px;
+    }
+    .timeline-day {
+      display: flex;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid #e1e7ef;
+    }
+    .timeline-date {
+      width: 100px;
+      font-size: 12px;
+      color: #656d76;
+    }
+    .timeline-languages {
+      flex: 1;
+      display: flex;
+      gap: 5px;
+    }
+    .timeline-lang {
+      background: #0969da;
+      color: white;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 11px;
+    }
+    .error {
+      background: #fff5f5;
+      border: 1px solid #feb2b2;
+      color: #c53030;
+      padding: 12px;
+      border-radius: 6px;
+      margin: 20px 0;
+    }
+    .hidden {
+      display: none;
+    }
+  </style>
 </head>
 <body>
-  <button id="login">Login with GitHub</button>
-  <pre id="result"></pre>
+  <div class="header">
+    <h1>🚀 GitHub Commit Analytics</h1>
+    <p>Analyze your coding activity across repositories and programming languages</p>
+  </div>
+
+  <div class="container login-section" id="loginSection">
+    <button id="login">Login with GitHub</button>
+    <p style="margin-top: 15px; color: #656d76; font-size: 14px;">
+      We'll need access to your repositories to analyze your commit history
+    </p>
+  </div>
+
+  <div class="container hidden" id="analyticsSection">
+    <div class="controls">
+      <div class="control-group">
+        <label for="startDate">Start Date</label>
+        <input type="date" id="startDate" />
+      </div>
+      <div class="control-group">
+        <label for="endDate">End Date</label>
+        <input type="date" id="endDate" />
+      </div>
+      <div class="control-group">
+        <label for="timePeriod">Time Period</label>
+        <select id="timePeriod">
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>&nbsp;</label>
+        <button id="analyzeButton">Analyze Commits</button>
+      </div>
+    </div>
+
+    <div class="loading" id="loading">
+      <p>🔄 Analyzing your commit history... This may take a minute.</p>
+    </div>
+
+    <div class="error hidden" id="error"></div>
+
+    <div id="results" class="hidden">
+      <div class="stats-summary" id="statsSummary"></div>
+      <div class="language-chart" id="languageChart"></div>
+      <div class="timeline" id="timeline"></div>
+    </div>
+  </div>
+
+  <pre id="result" style="display: none;"></pre>
 
   <script>
     const clientId = "Ov23liqzxAZdVana8Zna";
-    const redirectUri = window.location.origin; 
+    const redirectUri = window.location.origin;
     // Will be http://127.0.0.1:8888 in dev or https://yoursite.netlify.app in prod
 
+    let accessToken = null;
+    let userProfile = null;
+
     document.getElementById("login").addEventListener("click", () => {
-      const authUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=read:user`;
+      const authUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=read:user,public_repo`;
       window.location.href = authUrl;
+    });
+
+    document.getElementById("analyzeButton").addEventListener("click", async () => {
+      const startDate = document.getElementById("startDate").value;
+      const endDate = document.getElementById("endDate").value;
+      const timePeriod = document.getElementById("timePeriod").value;
+
+      if (!startDate || !endDate) {
+        showError("Please select both start and end dates");
+        return;
+      }
+
+      if (new Date(startDate) >= new Date(endDate)) {
+        showError("Start date must be before end date");
+        return;
+      }
+
+      await analyzeCommits(startDate, endDate, timePeriod);
     });
 
     async function handleAuthCode() {
@@ -23,10 +248,171 @@
       const code = params.get("code");
 
       if (code) {
-        const res = await fetch(`/.netlify/functions/get_profile_info?code=${code}`);
-        const data = await res.json();
-        document.getElementById("result").textContent = JSON.stringify(data, null, 2);
+        try {
+          const res = await fetch(`/.netlify/functions/get_profile_info?code=${code}`);
+          const data = await res.json();
+
+          if (data.access_token || data.login) {
+            // Store the user data and show analytics section
+            userProfile = data;
+            accessToken = data.access_token || localStorage.getItem('github_access_token');
+
+            document.getElementById("loginSection").classList.add("hidden");
+            document.getElementById("analyticsSection").classList.remove("hidden");
+
+            // Set default date range (last 30 days)
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(endDate.getDate() - 30);
+
+            document.getElementById("startDate").value = startDate.toISOString().split('T')[0];
+            document.getElementById("endDate").value = endDate.toISOString().split('T')[0];
+          }
+        } catch (error) {
+          showError("Failed to authenticate with GitHub");
+        }
+
+        // Clear the code from URL
+        window.history.replaceState({}, document.title, window.location.pathname);
       }
+    }
+
+    async function analyzeCommits(startDate, endDate, timePeriod) {
+      showLoading(true);
+      hideError();
+      hideResults();
+
+      try {
+        const params = new URLSearchParams({
+          access_token: accessToken,
+          username: userProfile.login,
+          start_date: startDate,
+          end_date: endDate,
+          time_period: timePeriod
+        });
+
+        const response = await fetch(`/.netlify/functions/get_commit_stats?${params}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to fetch commit statistics');
+        }
+
+        displayResults(data);
+      } catch (error) {
+        showError(error.message);
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    function displayResults(data) {
+      displaySummaryStats(data.summary);
+      displayLanguageChart(data.summary.topLanguages);
+      displayTimeline(data.aggregatedData);
+      showResults();
+    }
+
+    function displaySummaryStats(summary) {
+      const container = document.getElementById("statsSummary");
+      container.innerHTML = `
+        <div class="stat-card">
+          <div class="stat-number">${summary.totalCommits}</div>
+          <div class="stat-label">Total Commits</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number">${summary.totalAdditions.toLocaleString()}</div>
+          <div class="stat-label">Lines Added</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number">${summary.totalDeletions.toLocaleString()}</div>
+          <div class="stat-label">Lines Deleted</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number">${summary.totalFiles}</div>
+          <div class="stat-label">Files Changed</div>
+        </div>
+      `;
+    }
+
+    function displayLanguageChart(languages) {
+      const container = document.getElementById("languageChart");
+
+      if (!languages.length) {
+        container.innerHTML = '<p>No language data available</p>';
+        return;
+      }
+
+      const maxChanges = Math.max(...languages.map(l => l.changes));
+
+      container.innerHTML = `
+        <h3>Top Programming Languages</h3>
+        ${languages.map(lang => `
+          <div class="language-bar">
+            <div class="language-name">${lang.language}</div>
+            <div class="language-progress">
+              <div class="language-fill" style="width: ${(lang.changes / maxChanges) * 100}%"></div>
+            </div>
+            <div class="language-value">${lang.changes.toLocaleString()} changes</div>
+          </div>
+        `).join('')}
+      `;
+    }
+
+    function displayTimeline(timelineData) {
+      const container = document.getElementById("timeline");
+
+      if (!timelineData.length) {
+        container.innerHTML = '<p>No timeline data available</p>';
+        return;
+      }
+
+      container.innerHTML = `
+        <h3>Activity Timeline</h3>
+        ${timelineData.map(day => {
+          const topLanguages = Object.entries(day.languages)
+            .sort(([,a], [,b]) => b.changes - a.changes)
+            .slice(0, 5)
+            .map(([lang]) => lang);
+
+          return `
+            <div class="timeline-day">
+              <div class="timeline-date">${day.date}</div>
+              <div style="margin: 0 15px; color: #656d76; font-size: 12px;">
+                ${day.totalCommits} commits, ${day.totalChanges} changes
+              </div>
+              <div class="timeline-languages">
+                ${topLanguages.map(lang => `
+                  <span class="timeline-lang">${lang}</span>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      `;
+    }
+
+    function showLoading(show) {
+      document.getElementById("loading").style.display = show ? 'block' : 'none';
+      document.getElementById("analyzeButton").disabled = show;
+    }
+
+    function showError(message) {
+      const errorDiv = document.getElementById("error");
+      errorDiv.textContent = message;
+      errorDiv.classList.remove("hidden");
+    }
+
+    function hideError() {
+      document.getElementById("error").classList.add("hidden");
+    }
+
+    function showResults() {
+      document.getElementById("results").classList.remove("hidden");
+    }
+
+    function hideResults() {
+      document.getElementById("results").classList.add("hidden");
     }
 
     handleAuthCode();

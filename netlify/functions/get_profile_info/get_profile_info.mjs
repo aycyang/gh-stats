@@ -52,7 +52,10 @@ export async function handler(event) {
 
     return {
       statusCode: 200,
-      body: JSON.stringify(userData),
+      body: JSON.stringify({
+        ...userData,
+        access_token: accessToken
+      }),
     };
   } catch (err) {
     console.error("💥 Unexpected error:", err);
