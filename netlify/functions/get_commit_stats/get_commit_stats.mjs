@@ -43,7 +43,17 @@ export async function handler(event) {
     const allCommits = [];
     const processedRepos = [];
 
-    for (const repo of repositories.slice(0, 20)) { // Limit to first 20 repos to avoid timeout
+    // Calculate date range to adjust processing limits
+    const dateRangeMs = new Date(endDate) - new Date(startDate);
+    const daysInRange = dateRangeMs / (1000 * 60 * 60 * 24);
+
+    // Reduce limits for longer time ranges to prevent timeout
+    const maxRepos = daysInRange > 90 ? 10 : (daysInRange > 30 ? 15 : 20);
+    const maxCommitsPerRepo = daysInRange > 90 ? 50 : (daysInRange > 30 ? 100 : 200);
+
+    console.log(`Date range: ${daysInRange.toFixed(0)} days. Processing up to ${maxRepos} repos, ${maxCommitsPerRepo} commits per repo.`);
+
+    for (const repo of repositories.slice(0, maxRepos)) {
       try {
         console.log(`Processing ${repo.owner.login}/${repo.name}...`);
 
@@ -58,8 +68,14 @@ export async function handler(event) {
 
         console.log(`Found ${commits.length} commits in ${repo.name}`);
 
+        // Limit commits per repo for large time ranges
+        const commitsToProcess = commits.slice(0, maxCommitsPerRepo);
+        if (commitsToProcess.length < commits.length) {
+          console.log(`Limited to processing ${commitsToProcess.length} of ${commits.length} commits for ${repo.name}`);
+        }
+
         // Get file changes for each commit
-        for (const commit of commits) {
+        for (const commit of commitsToProcess) {
           try {
             const fileChanges = await getCommitFileChanges(
               access_token,
@@ -94,7 +110,8 @@ export async function handler(event) {
         processedRepos.push({
           name: repo.name,
           owner: repo.owner.login,
-          commitCount: commits.length
+          commitCount: commits.length,
+          processedCommits: commitsToProcess.length
         });
 
       } catch (error) {

@@ -558,11 +558,25 @@
         });
 
         const response = await fetch(`/.netlify/functions/get_commit_stats?${params}`);
-        const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.error || 'Failed to fetch commit statistics');
+          // Handle different error types
+          if (response.status === 504) {
+            throw new Error('Request timed out. Try a shorter date range or switch to weekly view for large time periods.');
+          }
+
+          let errorMessage = 'Failed to fetch commit statistics';
+          try {
+            const data = await response.json();
+            errorMessage = data.error || errorMessage;
+          } catch (jsonError) {
+            // If response isn't JSON (like 504 gateway timeout), use status text
+            errorMessage = `${response.status}: ${response.statusText}`;
+          }
+          throw new Error(errorMessage);
         }
+
+        const data = await response.json();
 
         displayResults(data);
       } catch (error) {
