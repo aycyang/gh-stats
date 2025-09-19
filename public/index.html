@@ -330,6 +330,41 @@
       border-radius: 50%;
       border: 1px solid rgba(255,255,255,0.3);
     }
+    .repository-filter-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border: 1px solid #d1d9e0;
+      border-radius: 16px;
+      background: white;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+    .repository-filter-toggle.enabled {
+      background: #0969da;
+      color: white;
+      border-color: #0969da;
+    }
+    .repository-filter-toggle.disabled {
+      background: #f6f8fa;
+      color: #656d76;
+      border-color: #d1d9e0;
+      opacity: 0.7;
+    }
+    .repository-filter-toggle:hover {
+      border-color: #0969da;
+    }
+    .repository-filter-icon {
+      width: 10px;
+      height: 10px;
+      background: #656d76;
+      border-radius: 2px;
+      border: 1px solid rgba(255,255,255,0.3);
+    }
   </style>
 </head>
 <body>
@@ -383,7 +418,7 @@
             <label for="timePeriodChart" style="font-size: 14px; color: #24292f; font-weight: 500;">View:</label>
             <select id="timePeriodChart" style="padding: 6px 8px; border: 1px solid #d1d9e0; border-radius: 4px; font-size: 14px; background: white;">
               <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
+              <option value="weekly" selected>Weekly</option>
             </select>
           </div>
         </div>
@@ -397,6 +432,14 @@
           <button class="filter-toggle" id="filterToggleBtn">Show</button>
         </div>
         <div class="filter-content" id="filterContent">
+          <div style="margin-bottom: 20px;">
+            <p style="margin: 0 0 10px 0; font-size: 12px; color: #656d76; font-weight: 600;">
+              Repository Filters:
+            </p>
+            <div id="repositoryFilters" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px;">
+              <!-- Repository toggles will be populated here -->
+            </div>
+          </div>
           <div style="margin-bottom: 20px;">
             <p style="margin: 0 0 10px 0; font-size: 12px; color: #656d76; font-weight: 600;">
               Language Filters:
@@ -470,7 +513,8 @@
     let rawCommits = [];
     let excludedCommits = new Set();
     let excludedLanguages = new Set();
-    let currentTimePeriod = 'daily';
+    let excludedRepositories = new Set();
+    let currentTimePeriod = 'weekly';
 
     // GitHub's official language colors
     const GITHUB_LANGUAGE_COLORS = {
@@ -651,9 +695,10 @@
 
     function displayResults(data) {
       rawCommits = data.commits;
-      currentTimePeriod = document.getElementById("timePeriodChart")?.value || 'daily';
+      currentTimePeriod = document.getElementById("timePeriodChart")?.value || 'weekly';
       excludedCommits.clear(); // Reset exclusions on new data
       excludedLanguages.clear(); // Reset language exclusions on new data
+      excludedRepositories.clear(); // Reset repository exclusions on new data
 
       // Set the chart selector to match current period
       const timePeriodChart = document.getElementById("timePeriodChart");
@@ -668,14 +713,18 @@
     }
 
     function updateDisplays() {
-      // Filter out excluded commits
-      const filteredCommits = rawCommits.filter(commit => !excludedCommits.has(commit.oid));
+      // Filter out excluded commits and repositories
+      const filteredCommits = rawCommits.filter(commit => {
+        const repoName = `${commit.repository.owner}/${commit.repository.name}`;
+        return !excludedCommits.has(commit.oid) && !excludedRepositories.has(repoName);
+      });
 
       // Aggregate data client-side
       const aggregatedData = aggregateCommitsByTimeAndLanguage(filteredCommits, currentTimePeriod);
 
       displayLanguageTrendChart(aggregatedData);
       populateLanguageFilters(aggregatedData);
+      populateRepositoryFilters();
     }
 
     function displayLanguageTrendChart(timelineData) {
@@ -1163,6 +1212,54 @@
           </div>
         `;
       }).join('');
+    }
+
+    function populateRepositoryFilters() {
+      // Get all repositories from the raw commits data
+      const allRepositories = new Set();
+      rawCommits.forEach(commit => {
+        const repoName = `${commit.repository.owner}/${commit.repository.name}`;
+        allRepositories.add(repoName);
+      });
+
+      // Calculate commit counts for each repository
+      const repositoryStats = Array.from(allRepositories).map(repoName => {
+        const commits = rawCommits.filter(commit =>
+          `${commit.repository.owner}/${commit.repository.name}` === repoName
+        );
+        return {
+          name: repoName,
+          commitCount: commits.length,
+          totalChanges: commits.reduce((sum, commit) =>
+            sum + commit.files.reduce((fileSum, file) => fileSum + file.changes, 0), 0
+          )
+        };
+      }).sort((a, b) => b.totalChanges - a.totalChanges);
+
+      const container = document.getElementById("repositoryFilters");
+      container.innerHTML = repositoryStats.map(({ name, commitCount, totalChanges }) => {
+        const isEnabled = !excludedRepositories.has(name);
+        const shortName = name.split('/')[1]; // Just show repo name, not owner/repo
+        return `
+          <div class="repository-filter-toggle ${isEnabled ? 'enabled' : 'disabled'}"
+               onclick="toggleRepositoryFilter('${name}')"
+               title="${name} • ${commitCount} commits • ${totalChanges.toLocaleString()} changes">
+            <div class="repository-filter-icon"></div>
+            <span>${shortName}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function toggleRepositoryFilter(repoName) {
+      if (excludedRepositories.has(repoName)) {
+        excludedRepositories.delete(repoName);
+      } else {
+        excludedRepositories.add(repoName);
+      }
+
+      // Update displays with new filter
+      updateDisplays();
     }
 
     function toggleLanguageFilter(language) {
