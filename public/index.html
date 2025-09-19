@@ -312,8 +312,10 @@
         Include private repositories
       </label>
     </div>
-    <p style="margin-top: 15px; color: #656d76; font-size: 14px; text-align: center;">
-      We'll analyze your commit history from the selected repositories
+    <p style="margin-top: 15px; color: #656d76; font-size: 12px; text-align: center;">
+      We'll analyze your commit history from the selected repositories.<br>
+      <strong>Public repos:</strong> Only requires user profile access (read-only).<br>
+      <strong>Private repos:</strong> Requires broader permissions due to GitHub's OAuth limitations, but we only read commit data.
     </p>
   </div>
 
@@ -483,7 +485,9 @@
       }
 
       const includePrivate = document.getElementById("includePrivateRepos").checked;
-      const scope = includePrivate ? "read:user,repo" : "read:user,public_repo";
+      // For public repos: try with minimal 'read:user' scope only (public data should be accessible)
+      // For private repos: GitHub requires full 'repo' scope (no read-only option available)
+      const scope = includePrivate ? "read:user,repo" : "read:user";
 
       const authUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}`;
 
