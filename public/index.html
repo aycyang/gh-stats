@@ -659,56 +659,137 @@
       // Create tooltip
       const tooltip = d3.select("#d3Tooltip");
 
-      // Draw areas
+      // Create tooltip functions
+      function showLanguageTooltip(event, d, language) {
+        // For area hover, find the closest data point
+        const bisect = d3.bisector(d => d.data.date).left;
+        const x0 = xScale.invert(d3.pointer(event, g.node())[0]);
+        const i = bisect(d, x0, 1);
+        const d0 = d[i - 1];
+        const d1 = d[i];
+        const selectedData = d1 && (x0 - d0.data.date > d1.data.date - x0) ? d1 : d0;
+
+        if (!selectedData) return;
+
+        const date = selectedData.data.date.toLocaleDateString();
+        const timeEntry = timelineData.find(t => new Date(t.date).getTime() === selectedData.data.date.getTime());
+        const langData = timeEntry ? timeEntry.languages[language] : null;
+
+        if (!langData || langData.changes === 0) return;
+
+        // Position tooltip relative to mouse pointer
+        const [mouseX, mouseY] = d3.pointer(event, document.body);
+
+        tooltip.html(`
+          <div class="tooltip-header">${date}</div>
+          <div style="color: white; font-weight: 600; margin-top: 8px;">${language}</div>
+          <div style="margin-top: 4px;">${langData.changes.toLocaleString()} changes</div>
+          ${langData.repositories.length > 0 ? `
+            <div style="margin-top: 8px;">
+              <strong>Repositories:</strong>
+              ${langData.repositories.slice(0, 5).map(repo => `
+                <div style="font-size: 11px; color: #ccc; margin: 2px 0;">
+                  ${repo.name}: ${repo.changes.toLocaleString()}
+                </div>
+              `).join('')}
+              ${langData.repositories.length > 5 ? `<div style="font-size: 11px; color: #ccc;">... and ${langData.repositories.length - 5} more</div>` : ''}
+            </div>
+          ` : ''}
+        `)
+        .style("left", (mouseX + 10) + "px")
+        .style("top", (mouseY - 10) + "px")
+        .classed("visible", true);
+      }
+
+      function showAllLanguagesTooltip(event, d) {
+        const date = d.date.toLocaleDateString();
+        const timeEntry = timelineData.find(t => new Date(t.date).getTime() === d.date.getTime());
+
+        // Get all languages with data for this date
+        const languagesWithData = timeEntry ? Object.entries(timeEntry.languages).filter(([lang, data]) => data.changes > 0) : [];
+        languagesWithData.sort((a, b) => b[1].changes - a[1].changes);
+
+        // Position tooltip relative to mouse pointer
+        const [mouseX, mouseY] = d3.pointer(event, document.body);
+
+        tooltip.html(`
+          <div class="tooltip-header">${date}</div>
+          <div style="margin-top: 8px;">
+            <strong>Languages written:</strong>
+          </div>
+          ${languagesWithData.map(([language, langData]) => `
+            <div style="margin: 4px 0; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+              <div style="color: white; font-weight: 600;">${language}</div>
+              <div style="font-size: 11px; margin-top: 2px;">
+                ${langData.changes.toLocaleString()} changes
+                ${langData.repositories.length > 0 ? `• ${langData.repositories.length} repo${langData.repositories.length !== 1 ? 's' : ''}` : ''}
+              </div>
+              ${langData.repositories.slice(0, 3).map(repo => `
+                <div style="font-size: 10px; color: #ccc; margin-left: 8px;">
+                  ${repo.name}: ${repo.changes.toLocaleString()}
+                </div>
+              `).join('')}
+              ${langData.repositories.length > 3 ? `<div style="font-size: 10px; color: #ccc; margin-left: 8px;">... and ${langData.repositories.length - 3} more</div>` : ''}
+            </div>
+          `).join('')}
+        `)
+        .style("left", (mouseX + 10) + "px")
+        .style("top", (mouseY - 10) + "px")
+        .classed("visible", true);
+      }
+
+      // Draw areas with hover events
       g.selectAll(".area")
         .data(stackedData)
         .enter().append("path")
         .attr("class", "area")
         .attr("d", area)
         .attr("fill", d => getLanguageColor(d.key))
+        .attr("opacity", 0.7)
         .on("mouseover", function(event, d) {
-          const [mouseX, mouseY] = d3.pointer(event, document.body);
-
-          // Find the closest data point
-          const bisect = d3.bisector(d => d.data.date).left;
-          const x0 = xScale.invert(d3.pointer(event, this)[0]);
-          const i = bisect(d, x0, 1);
-          const d0 = d[i - 1];
-          const d1 = d[i];
-          const selectedData = d1 && (x0 - d0.data.date > d1.data.date - x0) ? d1 : d0;
-
-          if (selectedData) {
-            const changes = selectedData[1] - selectedData[0];
-            const date = selectedData.data.date.toLocaleDateString();
-            const language = d.key;
-
-            // Get repository data for this language and date
-            const timeEntry = timelineData.find(t => new Date(t.date).getTime() === selectedData.data.date.getTime());
-            const repos = timeEntry ? timeEntry.languages[language]?.repositories || [] : [];
-
-            tooltip.html(`
-              <div class="tooltip-header">${date}</div>
-              <div class="tooltip-language">${language}</div>
-              <div>${changes.toLocaleString()} changes</div>
-              <div class="tooltip-repos">
-                <strong>Repositories:</strong>
-                ${repos.slice(0, 5).map(repo => `
-                  <div class="tooltip-repo">
-                    ${repo.name}: ${repo.changes.toLocaleString()} changes
-                    (${repo.commits} commit${repo.commits !== 1 ? 's' : ''})
-                  </div>
-                `).join('')}
-                ${repos.length > 5 ? `<div class="tooltip-repo">... and ${repos.length - 5} more</div>` : ''}
-              </div>
-            `)
-            .style("left", (mouseX + 10) + "px")
-            .style("top", (mouseY - 10) + "px")
-            .classed("visible", true);
-          }
+          showLanguageTooltip(event, d, d.key);
         })
         .on("mouseout", function() {
           tooltip.classed("visible", false);
         });
+
+      // Add data points (circles) for better visibility
+      g.selectAll(".point-group")
+        .data(data)
+        .enter().append("g")
+        .attr("class", "point-group")
+        .attr("transform", d => `translate(${xScale(d.date)}, 0)`)
+        .on("mouseover", function(event, d) {
+          showAllLanguagesTooltip(event, d);
+        })
+        .on("mouseout", function() {
+          tooltip.classed("visible", false);
+        });
+
+      // Add circles for each language at each data point
+      languages.forEach(language => {
+        g.selectAll(`.points-${language.replace(/[^a-zA-Z0-9]/g, '')}`)
+          .data(data.filter(d => d[language] > 0))
+          .enter().append("circle")
+          .attr("class", `points-${language.replace(/[^a-zA-Z0-9]/g, '')}`)
+          .attr("cx", d => xScale(d.date))
+          .attr("cy", d => {
+            // Calculate the y position for this language in the stack
+            let yPos = 0;
+            for (const lang of languages) {
+              if (lang === language) break;
+              yPos += d[lang] || 0;
+            }
+            yPos += (d[language] || 0) / 2; // Center of this language's area
+            return yScale(yPos);
+          })
+          .attr("r", 4)
+          .attr("fill", getLanguageColor(language))
+          .attr("stroke", "white")
+          .attr("stroke-width", 2)
+          .style("cursor", "pointer")
+          .style("pointer-events", "none"); // Let events pass through to point-group
+      });
 
       // Add axes
       g.append("g")
