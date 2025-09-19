@@ -787,12 +787,11 @@
 
       const stackedData = stack(data);
 
-      // Set up area generator
+      // Set up area generator with straight lines
       const area = d3.area()
         .x(d => xScale(d.data.date))
         .y0(d => yScale(d[0]))
-        .y1(d => yScale(d[1]))
-        .curve(d3.curveCardinal);
+        .y1(d => yScale(d[1]));
 
       // Create tooltip
       const tooltip = d3.select("#d3Tooltip");
@@ -904,7 +903,7 @@
           tooltip.classed("visible", false);
         });
 
-      // Add circles for each language at each data point
+      // Add circles for each language at each data point (at top of each area)
       languages.forEach(language => {
         g.selectAll(`.points-${language.replace(/[^a-zA-Z0-9]/g, '')}`)
           .data(data.filter(d => d[language] > 0))
@@ -912,13 +911,12 @@
           .attr("class", `points-${language.replace(/[^a-zA-Z0-9]/g, '')}`)
           .attr("cx", d => xScale(d.date))
           .attr("cy", d => {
-            // Calculate the y position for this language in the stack
+            // Calculate the y position at the top of this language's area in the stack
             let yPos = 0;
             for (const lang of languages) {
-              if (lang === language) break;
               yPos += d[lang] || 0;
+              if (lang === language) break; // Stop at the top of this language's area
             }
-            yPos += (d[language] || 0) / 2; // Center of this language's area
             return yScale(yPos);
           })
           .attr("r", 4)
