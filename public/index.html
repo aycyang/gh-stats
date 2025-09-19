@@ -296,6 +296,40 @@
       font-weight: 500;
       margin-left: 10px;
     }
+    .language-filter-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border: 1px solid #d1d9e0;
+      border-radius: 16px;
+      background: white;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+    .language-filter-toggle.enabled {
+      background: #0969da;
+      color: white;
+      border-color: #0969da;
+    }
+    .language-filter-toggle.disabled {
+      background: #f6f8fa;
+      color: #656d76;
+      border-color: #d1d9e0;
+      opacity: 0.7;
+    }
+    .language-filter-toggle:hover {
+      border-color: #0969da;
+    }
+    .language-filter-color {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.3);
+    }
   </style>
 </head>
 <body>
@@ -361,7 +395,18 @@
           <button class="filter-toggle" id="filterToggleBtn">Show</button>
         </div>
         <div class="filter-content" id="filterContent">
+          <div style="margin-bottom: 20px;">
+            <p style="margin: 0 0 10px 0; font-size: 12px; color: #656d76; font-weight: 600;">
+              Language Filters:
+            </p>
+            <div id="languageFilters" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px;">
+              <!-- Language toggles will be populated here -->
+            </div>
+          </div>
           <div style="margin-bottom: 15px;">
+            <p style="margin: 0 0 10px 0; font-size: 12px; color: #656d76; font-weight: 600;">
+              Commit Filters:
+            </p>
             <p style="margin: 0 0 10px 0; font-size: 12px; color: #656d76;">
               Exclude commits with unusually large changes (e.g., code you didn't write):
             </p>
@@ -422,6 +467,7 @@
     let userProfile = null;
     let rawCommits = [];
     let excludedCommits = new Set();
+    let excludedLanguages = new Set();
     let currentTimePeriod = 'daily';
 
     // GitHub's official language colors
@@ -609,6 +655,7 @@
       const aggregatedData = aggregateCommitsByTimeAndLanguage(filteredCommits, currentTimePeriod);
 
       displayLanguageTrendChart(aggregatedData);
+      populateLanguageFilters(aggregatedData);
     }
 
     function displayLanguageTrendChart(timelineData) {
@@ -625,9 +672,13 @@
         )
       }));
 
-      // Get all languages and sort by total usage
+      // Get all languages and sort by total usage, excluding filtered languages
       const allLanguages = new Set();
-      timelineData.forEach(d => Object.keys(d.languages).forEach(lang => allLanguages.add(lang)));
+      timelineData.forEach(d => Object.keys(d.languages).forEach(lang => {
+        if (!excludedLanguages.has(lang)) {
+          allLanguages.add(lang);
+        }
+      }));
 
       const languageTotals = Array.from(allLanguages).map(lang => ({
         language: lang,
@@ -1069,6 +1120,40 @@
       // Update displays with new filter
       updateDisplays();
       populateCommitList();
+    }
+
+    function populateLanguageFilters(timelineData) {
+      // Get all languages from the data
+      const allLanguages = new Set();
+      timelineData.forEach(d => Object.keys(d.languages).forEach(lang => allLanguages.add(lang)));
+
+      const languageTotals = Array.from(allLanguages).map(lang => ({
+        language: lang,
+        total: timelineData.reduce((sum, d) => sum + (d.languages[lang]?.changes || 0), 0)
+      })).sort((a, b) => b.total - a.total);
+
+      const container = document.getElementById("languageFilters");
+      container.innerHTML = languageTotals.map(({ language }) => {
+        const isEnabled = !excludedLanguages.has(language);
+        return `
+          <div class="language-filter-toggle ${isEnabled ? 'enabled' : 'disabled'}"
+               onclick="toggleLanguageFilter('${language}')">
+            <div class="language-filter-color" style="background-color: ${getLanguageColor(language)};"></div>
+            <span>${language}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function toggleLanguageFilter(language) {
+      if (excludedLanguages.has(language)) {
+        excludedLanguages.delete(language);
+      } else {
+        excludedLanguages.add(language);
+      }
+
+      // Update displays with new filter
+      updateDisplays();
     }
 
     function toggleFilters() {
