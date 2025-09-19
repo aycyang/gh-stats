@@ -120,6 +120,69 @@ const LANGUAGE_EXTENSIONS = {
   // Objective-C
   'm': 'Objective-C',
   'mm': 'Objective-C++',
+
+  // Modern systems languages
+  'zig': 'Zig',
+  'odin': 'Odin',
+  'nim': 'Nim',
+  'crystal': 'Crystal',
+  'v': 'V',
+
+  // Functional languages
+  'ml': 'OCaml',
+  'mli': 'OCaml',
+  'fsx': 'F#',
+  'elm': 'Elm',
+  'purs': 'PureScript',
+  'reason': 'Reason',
+  're': 'Reason',
+
+  // Assembly
+  'asm': 'Assembly',
+  's': 'Assembly',
+  'S': 'Assembly',
+  'nasm': 'Assembly',
+
+  // Alternative web languages
+  'coffee': 'CoffeeScript',
+  'litcoffee': 'CoffeeScript',
+  'ls': 'LiveScript',
+  'pug': 'Pug',
+  'jade': 'Pug',
+  'haml': 'Haml',
+  'slim': 'Slim',
+
+  // Data science & math
+  'jl': 'Julia',
+  'mat': 'MATLAB',
+  'm': 'MATLAB', // Note: conflicts with Objective-C, filename context needed
+  'mathematica': 'Mathematica',
+  'nb': 'Mathematica',
+
+  // Game development
+  'cs': 'C#', // Also Unity scripts
+  'gd': 'GDScript',
+  'gdscript': 'GDScript',
+
+  // Mobile development
+  'xaml': 'XAML',
+
+  // Newer languages
+  'move': 'Move',
+  'sol': 'Solidity',
+  'cairo': 'Cairo',
+
+  // Domain-specific
+  'tex': 'TeX',
+  'bib': 'BibTeX',
+  'graphql': 'GraphQL',
+  'gql': 'GraphQL',
+  'proto': 'Protocol Buffers',
+  'thrift': 'Thrift',
+
+  // Alternative scripting
+  'nu': 'Nushell',
+  'pwsh': 'PowerShell',
 };
 
 const SPECIAL_FILENAMES = {
