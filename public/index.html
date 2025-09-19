@@ -384,7 +384,8 @@
     <p style="margin-top: 15px; color: #656d76; font-size: 12px; text-align: center;">
       We'll analyze your commit history from the selected repositories.<br>
       <strong>Public repos:</strong> Only requires user profile access (read-only).<br>
-      <strong>Private repos:</strong> Requires broader permissions due to GitHub's OAuth limitations, but we only read commit data.
+      <strong>Private repos:</strong> Requires broader permissions due to GitHub's OAuth limitations, but we only read commit data.<br>
+      <strong>Note:</strong> Date ranges are limited to 1 year maximum for optimal performance.
     </p>
   </div>
 
@@ -405,7 +406,10 @@
     </div>
 
     <div class="loading" id="loading">
-      <p>🔄 Analyzing your commit history... This may take a minute.</p>
+      <p id="loadingMessage">🔄 Analyzing your commit history... This may take a minute.</p>
+      <div id="statusText" style="margin-top: 15px; font-size: 14px; color: #656d76; text-align: center;">
+        Preparing analysis...
+      </div>
     </div>
 
     <div class="error hidden" id="error"></div>
@@ -651,6 +655,17 @@
         return;
       }
 
+      // Check if time window is larger than 1 year
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const daysDifference = (end - start) / (1000 * 60 * 60 * 24);
+      const maxDays = 365;
+
+      if (daysDifference > maxDays) {
+        showError(`Time window too large. Please select a date range of ${maxDays} days or less (currently ${Math.round(daysDifference)} days).`);
+        return;
+      }
+
       await analyzeCommits(startDate, endDate);
     });
 
@@ -706,6 +721,8 @@
       hideError();
       hideResults();
 
+      updateStatus("Fetching commit data from GitHub...");
+
       try {
         const params = new URLSearchParams({
           access_token: accessToken,
@@ -735,6 +752,7 @@
 
         const data = await response.json();
 
+        updateStatus("Analysis complete!");
         displayResults(data);
       } catch (error) {
         showError(error.message);
@@ -1025,6 +1043,17 @@
     function showLoading(show) {
       document.getElementById("loading").style.display = show ? 'block' : 'none';
       document.getElementById("analyzeButton").disabled = show;
+
+      if (show) {
+        updateStatus("Preparing analysis...");
+      }
+    }
+
+    function updateStatus(message) {
+      const statusText = document.getElementById("statusText");
+      if (statusText) {
+        statusText.textContent = message;
+      }
     }
 
     function showError(message) {
