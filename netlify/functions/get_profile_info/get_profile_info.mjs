@@ -13,20 +13,8 @@ export async function handler(event) {
     };
   }
 
-  // Determine which OAuth app to use based on client_id or environment
-  const isDevelopment = clientIdFromFrontend === process.env.GITHUB_CLIENT_ID_DEV ||
-                       event.headers.host?.includes('localhost') ||
-                       event.headers.host?.includes('127.0.0.1');
-
-  const clientId = isDevelopment ?
-    process.env.GITHUB_CLIENT_ID_DEV :
-    process.env.GITHUB_CLIENT_ID_PROD;
-
-  const clientSecret = isDevelopment ?
-    process.env.GITHUB_CLIENT_SECRET_DEV :
-    process.env.GITHUB_CLIENT_SECRET_PROD;
-
-  console.log("Environment:", isDevelopment ? "Development" : "Production");
+  const clientId = process.env.GITHUB_CLIENT_ID;
+  const clientSecret = process.env.GITHUB_CLIENT_SECRET;
   console.log("Client ID:", clientId ? "✅ Set" : "❌ Missing");
   console.log("Client Secret:", clientSecret ? "✅ Set" : "❌ Missing");
 
