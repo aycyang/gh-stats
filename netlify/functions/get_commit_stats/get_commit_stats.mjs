@@ -5,7 +5,7 @@ export async function handler(event) {
   console.log("=== Get Commit Stats Request ===");
   console.log("Query Parameters:", event.queryStringParameters);
 
-  const { access_token, start_date, end_date, username, time_period = 'daily' } = event.queryStringParameters || {};
+  const { access_token, start_date, end_date, username } = event.queryStringParameters || {};
 
   if (!access_token) {
     return {
@@ -124,8 +124,7 @@ export async function handler(event) {
     const response = {
       timeRange: {
         startDate,
-        endDate,
-        timePeriod: time_period
+        endDate
       },
       commits: allCommits, // Send raw commit data for client-side processing
       processedRepositories: processedRepos,

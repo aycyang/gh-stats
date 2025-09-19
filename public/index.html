@@ -364,13 +364,6 @@
         <input type="date" id="endDate" />
       </div>
       <div class="control-group">
-        <label for="timePeriod">Time Period</label>
-        <select id="timePeriod">
-          <option value="daily">Daily</option>
-          <option value="weekly">Weekly</option>
-        </select>
-      </div>
-      <div class="control-group">
         <label>&nbsp;</label>
         <button id="analyzeButton">Analyze Commits</button>
       </div>
@@ -384,7 +377,16 @@
 
     <div id="results" class="hidden">
       <div class="main-chart">
-        <h2 class="chart-title">Programming Language Activity Over Time</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h2 class="chart-title" style="margin: 0;">Programming Language Activity Over Time</h2>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <label for="timePeriodChart" style="font-size: 14px; color: #24292f; font-weight: 500;">View:</label>
+            <select id="timePeriodChart" style="padding: 6px 8px; border: 1px solid #d1d9e0; border-radius: 4px; font-size: 14px; background: white;">
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+            </select>
+          </div>
+        </div>
         <svg class="d3-chart" id="languageTrendChart"></svg>
         <div class="language-legend" id="languageLegend"></div>
       </div>
@@ -544,7 +546,6 @@
     document.getElementById("analyzeButton").addEventListener("click", async () => {
       const startDate = document.getElementById("startDate").value;
       const endDate = document.getElementById("endDate").value;
-      const timePeriod = document.getElementById("timePeriod").value;
 
       if (!startDate || !endDate) {
         showError("Please select both start and end dates");
@@ -556,7 +557,20 @@
         return;
       }
 
-      await analyzeCommits(startDate, endDate, timePeriod);
+      await analyzeCommits(startDate, endDate);
+    });
+
+    // Add event listener for time period chart selector
+    document.addEventListener("DOMContentLoaded", () => {
+      const timePeriodChart = document.getElementById("timePeriodChart");
+      if (timePeriodChart) {
+        timePeriodChart.addEventListener("change", () => {
+          currentTimePeriod = timePeriodChart.value;
+          if (rawCommits.length > 0) {
+            updateDisplays();
+          }
+        });
+      }
     });
 
     async function handleAuthCode() {
@@ -593,7 +607,7 @@
       }
     }
 
-    async function analyzeCommits(startDate, endDate, timePeriod) {
+    async function analyzeCommits(startDate, endDate) {
       showLoading(true);
       hideError();
       hideResults();
@@ -603,8 +617,7 @@
           access_token: accessToken,
           username: userProfile.login,
           start_date: startDate,
-          end_date: endDate,
-          time_period: timePeriod
+          end_date: endDate
         });
 
         const response = await fetch(`/.netlify/functions/get_commit_stats?${params}`);
@@ -638,8 +651,15 @@
 
     function displayResults(data) {
       rawCommits = data.commits;
-      currentTimePeriod = data.timeRange.timePeriod;
+      currentTimePeriod = document.getElementById("timePeriodChart")?.value || 'daily';
       excludedCommits.clear(); // Reset exclusions on new data
+      excludedLanguages.clear(); // Reset language exclusions on new data
+
+      // Set the chart selector to match current period
+      const timePeriodChart = document.getElementById("timePeriodChart");
+      if (timePeriodChart) {
+        timePeriodChart.value = currentTimePeriod;
+      }
 
       // Process and display data
       updateDisplays();
